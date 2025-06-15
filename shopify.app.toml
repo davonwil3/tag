@@ -1,0 +1,40 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "07213876d17a22e103720d9e1ccd7b09"
+name = "Taglogic"
+handle = "taglogic"
+application_url = "https://inns-crystal-floors-wallace.trycloudflare.com"
+embedded = true
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2025-04"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products,write_orders"
+
+[auth]
+redirect_urls = [
+  "https://inns-crystal-floors-wallace.trycloudflare.com/auth/callback",
+  "https://inns-crystal-floors-wallace.trycloudflare.com/auth/shopify/callback",
+  "https://inns-crystal-floors-wallace.trycloudflare.com/api/auth/callback"
+]
+
+[pos]
+embedded = false
