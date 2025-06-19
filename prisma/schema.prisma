@@ -11,11 +11,28 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
-model Session {
-  id            String    @id
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model rule {
+  id             String   @id(map: "Rule_pkey")
+  name           String
+  appliesTo      String
+  condition      String
+  conditionValue String
+  tag            String
+  shop           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+  isActive       Boolean  @default(true)
+
+  @@index([appliesTo], map: "Rule_appliesTo_idx")
+  @@index([shop], map: "Rule_shop_idx")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model session {
+  id            String    @id(map: "Session_pkey")
   shop          String
   state         String
   isOnline      Boolean   @default(false)
@@ -30,21 +47,4 @@ model Session {
   locale        String?
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
-}
-
-model Rule {
-  id            String   @id @default(cuid())
-  name          String
-  appliesTo     String   // Order, Customer, or Product
-  condition     String   // e.g., "total_greater_than", "discount_used", etc.
-  conditionValue String
-  tag           String
-  shop          String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  isActive      Boolean  @default(true)
-
-  @@index([shop])
-  @@index([appliesTo])
-  @@map("Rule")
 }
