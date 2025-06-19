@@ -19,7 +19,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
 
     console.log("About to authenticate webhook...");
-    const { session, payload } = await authenticate.webhook(request);
+    const { admin, session, payload } = await authenticate.webhook(request);
     console.log("Webhook authenticated successfully!");
     console.log("Webhook authenticated, session:", { shop: session?.shop });
     
@@ -81,7 +81,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
           // Get admin client and update the order with new tags
           console.log("Getting admin client...");
-          const { admin } = await authenticate.admin(request);
+        
           console.log("Updating order tags...");
           console.log("Order ID:", order.id);
           console.log("Order GID:", `gid://shopify/Order/${order.id}`);
@@ -103,7 +103,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           `, {
             variables: {
               input: {
-                id: `gid://shopify/Order/${order.id}`,
+                id: order.admin_graphql_api_id ?? `gid://shopify/Order/${order.id}`,
                 tags: currentTags.join(", ")
               }
             }
