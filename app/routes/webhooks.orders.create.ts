@@ -83,7 +83,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           console.log("Getting admin client...");
           const { admin } = await authenticate.admin(request);
           console.log("Updating order tags...");
-          await admin.graphql(`
+          console.log("Order ID:", order.id);
+          console.log("Order GID:", `gid://shopify/Order/${order.id}`);
+          console.log("New tags:", currentTags.join(", "));
+          
+          const result = await admin.graphql(`
             mutation orderUpdate($input: OrderInput!) {
               orderUpdate(input: $input) {
                 order {
@@ -104,9 +108,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               }
             }
           });
+          
+          console.log("GraphQL result:", JSON.stringify(result, null, 2));
           console.log(`Successfully applied tag ${rule.tag} to order ${order.id}`);
         } catch (error) {
           console.error(`Error updating order ${order.id}:`, error);
+          console.error("Error response status:", (error as any).status);
+          console.error("Error response body:", (error as any).body);
           return json({ 
             error: "Failed to update order tags",
             details: error instanceof Error ? error.message : "Unknown error"
