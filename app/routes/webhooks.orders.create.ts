@@ -8,7 +8,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
+  console.log("=== WEBHOOK START ===");
   console.log("Webhook request received:", request.url);
+  console.log("Environment check - DATABASE_URL exists:", !!process.env.DATABASE_URL);
   
   try {
     if (request.method !== "POST") {
@@ -16,8 +18,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: "Method not allowed" }, { status: 405 });
     }
 
-    console.log("Authenticating webhook...");
+    console.log("About to authenticate webhook...");
     const { session, payload } = await authenticate.webhook(request);
+    console.log("Webhook authenticated successfully!");
     console.log("Webhook authenticated, session:", { shop: session?.shop });
     
     if (!session?.shop) {
@@ -115,7 +118,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.log("Webhook handler completed successfully");
     return json({ success: true });
   } catch (error) {
+    console.error("=== WEBHOOK ERROR ===");
     console.error("Webhook handler error:", error);
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack");
     return json({ 
       error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error"
