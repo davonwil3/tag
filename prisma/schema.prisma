@@ -48,4 +48,5 @@ model Rule {
 
   @@index([shop])
   @@index([appliesTo])
+  @@map("Rule")
 }
