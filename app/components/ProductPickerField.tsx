@@ -29,32 +29,44 @@ export function ProductPickerField({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(initialSelection || null);
 
   const openPicker = useCallback(() => {
-    const picker = create(app, {
-      resourceType: 'product',
-      options: {
-        selectMultiple: false,
-        showVariants: false,
-        initialSelectionIds: selectedProduct
-          ? [{ id: selectedProduct.id }]
-          : [],
-      },
-    });
+    console.log("Opening picker...");
+    console.log("App bridge instance:", app);
+    
+    try {
+      const picker = create(app, {
+        resourceType: 'product',
+        options: {
+          selectMultiple: false,
+          showVariants: false,
+          initialSelectionIds: selectedProduct
+            ? [{ id: selectedProduct.id }]
+            : [],
+        },
+      });
+      
+      console.log("Picker created successfully:", picker);
 
-    picker.subscribe('SELECT', (payload) => {
-      const selection = payload.selection;
-      if (selection && selection.length > 0) {
-        const product = selection[0];
-        setSelectedProduct(product);
-        onChange?.(product);
-      }
-      picker.dispatch('CLOSE');
-    });
+      picker.subscribe('SELECT', (payload) => {
+        console.log("SELECT event received:", payload);
+        const selection = payload.selection;
+        if (selection && selection.length > 0) {
+          const product = selection[0];
+          setSelectedProduct(product);
+          onChange?.(product);
+        }
+        picker.dispatch('CLOSE');
+      });
 
-    picker.subscribe('CANCEL', () => {
-      picker.dispatch('CLOSE');
-    });
+      picker.subscribe('CANCEL', () => {
+        console.log("CANCEL event received");
+        picker.dispatch('CLOSE');
+      });
 
-    picker.dispatch('OPEN');
+      console.log("Dispatching OPEN action...");
+      picker.dispatch('OPEN');
+    } catch (error) {
+      console.error("Error creating or opening picker:", error);
+    }
   }, [app, selectedProduct, onChange]);
 
   const handleClearSelection = useCallback(() => {
