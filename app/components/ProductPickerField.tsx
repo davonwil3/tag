@@ -40,12 +40,7 @@ export function ProductPickerField({
       return;
     }
     
-    // Check if the app has the required methods
-    if (typeof app.subscribe !== 'function') {
-      console.error("App Bridge app.subscribe is not a function. App methods:", Object.getOwnPropertyNames(app));
-      alert("App Bridge not properly initialized. Please refresh the page and try again.");
-      return;
-    }
+   
     
     try {
       const picker = ResourcePicker.create(app, {
