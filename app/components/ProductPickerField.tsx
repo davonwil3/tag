@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Button, FormLayout, Text } from "@shopify/polaris";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { ResourcePicker } from "@shopify/app-bridge-react";
+import { createResourcePicker } from "@shopify/app-bridge/actions";
 
 interface Product {
   id: string;
@@ -48,8 +48,8 @@ export function ProductPickerField({
     }
     
     try {
-      const picker = ResourcePicker.create(app, {
-        resourceType: ResourcePicker.ResourceType.Product,
+      const picker = createResourcePicker(app, {
+        resourceType: 'product',
         options: {
           selectMultiple: false,
           showVariants: false,
@@ -61,7 +61,7 @@ export function ProductPickerField({
       
       console.log("Picker created successfully:", picker);
 
-      picker.subscribe(ResourcePicker.Action.SELECT, (payload) => {
+      picker.subscribe('SELECT', (payload) => {
         console.log("SELECT event received:", payload);
         const selection = payload.selection;
         if (selection && selection.length > 0) {
@@ -69,16 +69,16 @@ export function ProductPickerField({
           setSelectedProduct(product);
           onChange?.(product);
         }
-        picker.dispatch(ResourcePicker.Action.CLOSE);
+        picker.dispatch('CLOSE');
       });
 
-      picker.subscribe(ResourcePicker.Action.CANCEL, () => {
+      picker.subscribe('CANCEL', () => {
         console.log("CANCEL event received");
-        picker.dispatch(ResourcePicker.Action.CLOSE);
+        picker.dispatch('CLOSE');
       });
 
       console.log("Dispatching OPEN action...");
-      picker.dispatch(ResourcePicker.Action.OPEN);
+      picker.dispatch('OPEN');
     } catch (error) {
       console.error("Error creating or opening picker:", error);
       console.error("Error details:", error.message, error.stack);
