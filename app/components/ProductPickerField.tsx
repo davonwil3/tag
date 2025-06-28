@@ -40,10 +40,8 @@ export function ProductPickerField({
       return;
     }
     
-   
-    
     try {
-      const picker = ResourcePicker.create(app, {
+      const picker = ResourcePicker.create(app as any, {
         resourceType: ResourcePicker.ResourceType.Product,
         options: {
           selectMultiple: false,
@@ -75,8 +73,12 @@ export function ProductPickerField({
       console.log("Dispatching OPEN action...");
       picker.dispatch(ResourcePicker.Action.OPEN);
     } catch (error) {
-      console.error("Error creating or opening picker:", error);
-      console.error("Error details:", error.message, error.stack);
+      if (error instanceof Error) {
+        console.error("Error creating or opening picker:", error);
+        console.error("Error details:", error.message, error.stack);
+      } else {
+        console.error("Unknown error creating or opening picker:", error);
+      }
       alert("Failed to open product picker. Please try again or contact support.");
     }
   }, [app, selectedProduct, onChange]);
@@ -89,9 +91,11 @@ export function ProductPickerField({
   return (
     <FormLayout>
       <div>
-        <Text as="label" variant="bodyMd" fontWeight="semibold">
-          {label}
-        </Text>
+        <label>
+          <Text as="span" variant="bodyMd" fontWeight="semibold">
+            {label}
+          </Text>
+        </label>
         <div style={{ marginTop: "0.5rem" }}>
           <Button
             onClick={openPicker}
@@ -137,7 +141,7 @@ export function ProductPickerField({
                   onClick={handleClearSelection}
                   variant="plain"
                   tone="critical"
-                  size="small"
+                  size="slim"
                 >
                   Remove
                 </Button>
@@ -146,14 +150,18 @@ export function ProductPickerField({
           </div>
         )}
         {helpText && (
-          <Text as="p" variant="bodySm" tone="subdued" style={{ marginTop: "0.5rem" }}>
-            {helpText}
-          </Text>
+          <div style={{ marginTop: "0.5rem" }}>
+            <Text as="p" variant="bodySm" tone="subdued">
+              {helpText}
+            </Text>
+          </div>
         )}
         {error && (
-          <Text as="p" variant="bodySm" tone="critical" style={{ marginTop: "0.5rem" }}>
-            {error}
-          </Text>
+          <div style={{ marginTop: "0.5rem" }}>
+            <Text as="p" variant="bodySm" tone="critical">
+              {error}
+            </Text>
+          </div>
         )}
         {/* Hidden input for form submission */}
         <input
