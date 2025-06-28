@@ -1,7 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Button, FormLayout, Text } from "@shopify/polaris";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { ResourcePicker } from "@shopify/app-bridge/actions";
+import { Button, Text } from "@shopify/polaris";
 
 interface Product {
   id: string;
@@ -10,166 +8,42 @@ interface Product {
   images?: Array<{ id: string; url: string; altText?: string }>;
 }
 
-interface ProductPickerFieldProps {
-  label?: string;
-  initialSelection?: Product;
-  onChange?: (product: Product | null) => void;
-  error?: string;
-  helpText?: string;
-}
+export function ProductPickerField({ onChange }: { onChange?: (product: Product | null) => void }) {
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-export function ProductPickerField({
-  label = "Select Product",
-  initialSelection,
-  onChange,
-  error,
-  helpText,
-}: ProductPickerFieldProps) {
-  const app = useAppBridge();
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(initialSelection || null);
-
-  const openPicker = useCallback(() => {
-    console.log("Opening picker...");
-    console.log("App bridge instance:", app);
-    console.log("App bridge type:", typeof app);
-    console.log("App bridge methods:", app ? Object.getOwnPropertyNames(app) : "No app");
-    
-    if (!app) {
-      console.error("App Bridge not initialized. Make sure you're running this in the Shopify admin.");
-      alert("Product picker requires Shopify admin context. Please open this app from within your Shopify admin.");
-      return;
+  const openPicker = useCallback(async () => {
+    // @ts-ignore: shopify is a global injected by App Bridge
+    const selected = await window.shopify.resourcePicker({ type: "product", multiple: false });
+    if (selected && selected.length > 0 && "handle" in selected[0] && "images" in selected[0]) {
+      const product = selected[0];
+      const mappedProduct: Product = {
+        id: product.id,
+        title: product.title,
+        handle: product.handle,
+        images: product.images?.map((img: any) => ({
+          id: img.id,
+          url: img.originalSrc || img.url || "",
+          altText: img.altText,
+        })) || [],
+      };
+      setSelectedProduct(mappedProduct);
+      onChange?.(mappedProduct);
     }
-    
-    try {
-      const picker = ResourcePicker.create(app as any, {
-        resourceType: ResourcePicker.ResourceType.Product,
-        options: {
-          selectMultiple: false,
-          showVariants: false,
-          initialSelectionIds: selectedProduct
-            ? [{ id: selectedProduct.id }]
-            : [],
-        },
-      });
-      
-      console.log("Picker created successfully:", picker);
-
-      picker.subscribe(ResourcePicker.Action.SELECT, (payload) => {
-        console.log("SELECT event received:", payload);
-        const selection = payload.selection;
-        if (selection && selection.length > 0) {
-          const product = selection[0];
-          setSelectedProduct(product);
-          onChange?.(product);
-        }
-        picker.dispatch(ResourcePicker.Action.CLOSE);
-      });
-
-      picker.subscribe(ResourcePicker.Action.CANCEL, () => {
-        console.log("CANCEL event received");
-        picker.dispatch(ResourcePicker.Action.CLOSE);
-      });
-
-      console.log("Dispatching OPEN action...");
-      picker.dispatch(ResourcePicker.Action.OPEN);
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error("Error creating or opening picker:", error);
-        console.error("Error details:", error.message, error.stack);
-      } else {
-        console.error("Unknown error creating or opening picker:", error);
-      }
-      alert("Failed to open product picker. Please try again or contact support.");
-    }
-  }, [app, selectedProduct, onChange]);
-
-  const handleClearSelection = useCallback(() => {
-    setSelectedProduct(null);
-    onChange?.(null);
   }, [onChange]);
 
   return (
-    <FormLayout>
-      <div>
-        <label>
-          <Text as="span" variant="bodyMd" fontWeight="semibold">
-            {label}
-          </Text>
-        </label>
-        <div style={{ marginTop: "0.5rem" }}>
-          <Button
-            onClick={openPicker}
-            variant="secondary"
-            size="large"
-            fullWidth
-          >
-            {selectedProduct ? "Change Product" : "Select Product"}
+    <div>
+      <Button onClick={openPicker} fullWidth>
+        {selectedProduct ? "Change Product" : "Select Product"}
+      </Button>
+      {selectedProduct && (
+        <div style={{ marginTop: 16 }}>
+          <Text as="span" variant="bodyMd" fontWeight="semibold">{selectedProduct.title}</Text>
+          <Button onClick={() => { setSelectedProduct(null); onChange?.(null); }} tone="critical" variant="plain">
+            Remove
           </Button>
         </div>
-        {selectedProduct && (
-          <div style={{ marginTop: "1rem" }}>
-            <div
-              style={{
-                padding: "1rem",
-                border: "1px solid #e1e3e5",
-                borderRadius: "8px",
-                backgroundColor: "#f6f6f7",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                {selectedProduct.images?.[0]?.url && (
-                  <img
-                    src={selectedProduct.images[0].url}
-                    alt={selectedProduct.title}
-                    style={{
-                      width: "40px",
-                      height: "40px",
-                      borderRadius: "4px",
-                      objectFit: "cover",
-                    }}
-                  />
-                )}
-                <div style={{ flex: 1 }}>
-                  <Text as="p" variant="bodyMd" fontWeight="semibold">
-                    {selectedProduct.title}
-                  </Text>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    ID: {selectedProduct.id.split("/").pop()}
-                  </Text>
-                </div>
-                <Button
-                  onClick={handleClearSelection}
-                  variant="plain"
-                  tone="critical"
-                  size="slim"
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-        {helpText && (
-          <div style={{ marginTop: "0.5rem" }}>
-            <Text as="p" variant="bodySm" tone="subdued">
-              {helpText}
-            </Text>
-          </div>
-        )}
-        {error && (
-          <div style={{ marginTop: "0.5rem" }}>
-            <Text as="p" variant="bodySm" tone="critical">
-              {error}
-            </Text>
-          </div>
-        )}
-        {/* Hidden input for form submission */}
-        <input
-          type="hidden"
-          name="conditionValue"
-          value={selectedProduct?.id || ""}
-        />
-      </div>
-    </FormLayout>
+      )}
+    </div>
   );
 } 
