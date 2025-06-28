@@ -15,6 +15,7 @@ import {
 import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "~/db.server";
+import { DynamicConditionInput } from "~/components/DynamicConditionInput";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -57,6 +58,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function NewRule() {
   const [appliesTo, setAppliesTo] = useState<string>("");
+  const [condition, setCondition] = useState<string>("");
   const [ruleName, setRuleName] = useState("");
   const [conditionValue, setConditionValue] = useState("");
   const [tagToApply, setTagToApply] = useState("");
@@ -65,7 +67,19 @@ export default function NewRule() {
   const isSubmitting = navigation.state === "submitting";
 
   const handleAppliesToChange = useCallback(
-    (value: string) => setAppliesTo(value),
+    (value: string) => {
+      setAppliesTo(value);
+      setCondition(""); // Reset condition when appliesTo changes
+      setConditionValue(""); // Reset condition value when appliesTo changes
+    },
+    []
+  );
+
+  const handleConditionChange = useCallback(
+    (value: string) => {
+      setCondition(value);
+      setConditionValue(""); // Reset condition value when condition changes
+    },
     []
   );
 
@@ -87,18 +101,33 @@ export default function NewRule() {
   const conditionOptions = {
     Order: [
       { label: "Total is greater than", value: "total_greater_than" },
+      { label: "Total is less than", value: "total_less_than" },
       { label: "Discount used", value: "discount_used" },
-      { label: "Contains item", value: "contains_item" },
+      { label: "Contains specific product", value: "contains_item" },
+      { label: "Shipping method", value: "shipping_method" },
+      { label: "Order has tag", value: "order_tag" },
+      { label: "Is first order", value: "is_first_order" },
+      { label: "Fulfillment status", value: "fulfillment_status" },
     ],
     Customer: [
       { label: "Total spent", value: "total_spent" },
       { label: "Orders placed", value: "orders_placed" },
       { label: "Has email", value: "has_email" },
+      { label: "Customer has tag", value: "customer_tagged" },
+      { label: "Accepts marketing", value: "accepts_marketing" },
+      { label: "Customer location", value: "customer_location" },
+      { label: "Created before", value: "created_before" },
     ],
     Product: [
+      { label: "Product is", value: "product_is" },
       { label: "Title contains", value: "title_contains" },
       { label: "Vendor is", value: "vendor_is" },
       { label: "Price is over", value: "price_over" },
+      { label: "Product type", value: "product_type" },
+      { label: "Inventory is low", value: "inventory_low" },
+      { label: "Product has tag", value: "product_tag" },
+      { label: "SKU starts with", value: "sku_starts_with" },
+      { label: "Published before", value: "published_before" },
     ],
   };
 
@@ -145,17 +174,19 @@ export default function NewRule() {
                     label="Condition"
                     name="condition"
                     options={appliesTo ? conditionOptions[appliesTo as keyof typeof conditionOptions] : []}
+                    value={condition}
+                    onChange={handleConditionChange}
                     disabled={!appliesTo}
                   />
 
-                  <TextField
-                    label="Condition Value"
-                    name="conditionValue"
-                    autoComplete="off"
-                    helpText="Enter the value to match against"
-                    value={conditionValue}
-                    onChange={handleConditionValueChange}
-                  />
+                  {appliesTo && condition && (
+                    <DynamicConditionInput
+                      appliesTo={appliesTo}
+                      condition={condition}
+                      value={conditionValue}
+                      onChange={handleConditionValueChange}
+                    />
+                  )}
 
                   <TextField
                     label="Tag to apply"

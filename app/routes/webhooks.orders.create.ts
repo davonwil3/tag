@@ -58,13 +58,36 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         case "total_greater_than":
           shouldApplyTag = parseFloat(order.total_price) > parseFloat(rule.conditionValue);
           break;
+        case "total_less_than":
+          shouldApplyTag = parseFloat(order.total_price) < parseFloat(rule.conditionValue);
+          break;
         case "discount_used":
           shouldApplyTag = order.discount_codes && order.discount_codes.length > 0;
           break;
         case "contains_item":
-          shouldApplyTag = order.line_items?.some((item: any) =>
-            item.title.toLowerCase().includes(rule.conditionValue.toLowerCase())
+          shouldApplyTag = order.line_items?.some((item: any) => {
+            // Check if the item's product ID matches the selected product ID
+            const itemProductId = item.product_id?.toString();
+            const ruleProductId = rule.conditionValue;
+            return itemProductId === ruleProductId;
+          });
+          break;
+        case "shipping_method":
+          shouldApplyTag = order.shipping_lines?.some((shipping: any) =>
+            shipping.title.toLowerCase().includes(rule.conditionValue.toLowerCase())
           );
+          break;
+        case "order_tag":
+          const orderTags = order.tags ? order.tags.split(",").map((tag: string) => tag.trim()) : [];
+          shouldApplyTag = orderTags.includes(rule.conditionValue);
+          break;
+        case "is_first_order":
+          // This would need to be implemented by checking customer's order history
+          // For now, we'll use a simple check based on order number or customer data
+          shouldApplyTag = order.order_number === "1" || order.customer?.orders_count === 1;
+          break;
+        case "fulfillment_status":
+          shouldApplyTag = order.fulfillment_status === rule.conditionValue.toLowerCase();
           break;
       }
 

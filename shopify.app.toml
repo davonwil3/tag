@@ -25,9 +25,17 @@ api_version = "2025-04"
   topics = [ "orders/create" ]
   uri = "/webhooks/orders/create"
 
+  [[webhooks.subscriptions]]
+  topics = [ "customers/create" ]
+  uri = "/webhooks/customers/create"
+
+  [[webhooks.subscriptions]]
+  topics = [ "products/create" ]
+  uri = "/webhooks/products/create"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,write_orders,read_orders"
+scopes = "write_products,write_orders,read_orders,write_customers,read_customers"
 
 [auth]
 redirect_urls = [
