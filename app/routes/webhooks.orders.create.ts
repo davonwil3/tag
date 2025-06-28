@@ -111,6 +111,38 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           
           console.log("GraphQL result:", JSON.stringify(result, null, 2));
           console.log(`Successfully applied tag ${rule.tag} to order ${order.id}`);
+          
+          // Track tag activity
+          await prisma.tagActivity.create({
+            data: {
+              shop,
+              entityType: "Order",
+              entityId: order.id.toString(),
+              tag: rule.tag,
+              ruleId: rule.id,
+            },
+          });
+          
+          // Update tag usage statistics
+          await prisma.tagUsage.upsert({
+            where: {
+              shop_tag: {
+                shop,
+                tag: rule.tag,
+              },
+            },
+            update: {
+              count: {
+                increment: 1,
+              },
+              lastUsed: new Date(),
+            },
+            create: {
+              shop,
+              tag: rule.tag,
+              count: 1,
+            },
+          });
         } catch (error) {
           console.error(`Error updating order ${order.id}:`, error);
           console.error("Error response status:", (error as any).status);

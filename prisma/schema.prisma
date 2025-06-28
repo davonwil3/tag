@@ -43,3 +43,32 @@ model session {
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
 }
+
+/// Track when tags are applied to orders, customers, or products
+model tagActivity {
+  id          String   @id @default(cuid())
+  shop        String
+  entityType  String   // "Order", "Customer", "Product"
+  entityId    String   // Shopify ID of the entity
+  tag         String   // The tag that was applied
+  ruleId      String?  // ID of the rule that triggered this (optional)
+  appliedAt   DateTime @default(now())
+  
+  @@index([shop])
+  @@index([entityType])
+  @@index([tag])
+  @@index([appliedAt])
+}
+
+/// Track tag usage statistics
+model tagUsage {
+  id        String   @id @default(cuid())
+  shop      String
+  tag       String
+  count     Int      @default(0)
+  lastUsed  DateTime @default(now())
+  
+  @@unique([shop, tag])
+  @@index([shop])
+  @@index([tag])
+}

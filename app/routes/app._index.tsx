@@ -18,70 +18,59 @@ import {
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
+  
+  // Get rules for this shop
   const rules = await prisma.rule.findMany({
     where: { shop: session.shop },
     orderBy: { createdAt: "desc" },
   });
-  return json({ rules });
+  
+  // Get recent tag activity (with fallback)
+  let recentActivity: any[] = [];
+  try {
+    recentActivity = await prisma.tagActivity.findMany({
+      where: { shop: session.shop },
+      orderBy: { appliedAt: "desc" },
+      take: 10,
+    });
+  } catch (error) {
+    console.log("tagActivity table not found, using empty array");
+  }
+  
+  // Get tag usage statistics (with fallback)
+  let tagUsage: any[] = [];
+  try {
+    tagUsage = await prisma.tagUsage.findMany({
+      where: { shop: session.shop },
+      orderBy: { count: "desc" },
+    });
+  } catch (error) {
+    console.log("tagUsage table not found, using empty array");
+  }
+  
+  return json({ rules, recentActivity, tagUsage });
 };
 
 export default function Index() {
-  const { rules } = useLoaderData<typeof loader>();
-
-  // Mock data for Recent Tag Activity
-  const recentActivity = [
-    {
-      id: "1",
-      orderId: "#1001",
-      tagApplied: "High Value",
-      date: "2024-01-15",
-    },
-    {
-      id: "2", 
-      orderId: "#1002",
-      tagApplied: "Discount Used",
-      date: "2024-01-14",
-    },
-    {
-      id: "3",
-      orderId: "#1003", 
-      tagApplied: "VIP Customer",
-      date: "2024-01-13",
-    },
-    {
-      id: "4",
-      orderId: "#1004",
-      tagApplied: "High Value",
-      date: "2024-01-12",
-    },
-  ];
-
-  // Mock data for Tag Usage Summary
-  const tagUsage = [
-    { tag: "High Value", count: 45 },
-    { tag: "Discount Used", count: 23 },
-    { tag: "VIP Customer", count: 12 },
-    { tag: "First Time Buyer", count: 8 },
-    { tag: "Returning Customer", count: 34 },
-  ];
+  const { rules, recentActivity, tagUsage } = useLoaderData<typeof loader>();
 
   const activityRowMarkup = recentActivity.map(
-    ({ id, orderId, tagApplied, date }, index) => (
+    (activity, index) => (
       <IndexTable.Row
-        id={id}
-        key={id}
+        id={activity.id}
+        key={activity.id}
         position={index}
       >
         <IndexTable.Cell>
           <Text variant="bodyMd" fontWeight="bold" as="span">
-            {orderId}
+            {activity.entityType} #{activity.entityId}
           </Text>
         </IndexTable.Cell>
         <IndexTable.Cell>
-          <Badge>{tagApplied}</Badge>
+          <Badge>{activity.tag}</Badge>
         </IndexTable.Cell>
         <IndexTable.Cell>
-          {new Date(date).toLocaleDateString()}
+          {new Date(activity.appliedAt).toLocaleDateString()}
         </IndexTable.Cell>
       </IndexTable.Row>
     )
@@ -104,18 +93,24 @@ export default function Index() {
               <Text as="h2" variant="headingMd">
                 Recent Tag Activity
               </Text>
-              <IndexTable
-                resourceName={{ singular: "activity", plural: "activities" }}
-                itemCount={recentActivity.length}
-                headings={[
-                  { title: "Order ID" },
-                  { title: "Tag Applied" },
-                  { title: "Date" },
-                ]}
-                selectable={false}
-              >
-                {activityRowMarkup}
-              </IndexTable>
+              {recentActivity.length === 0 ? (
+                <Text as="p" variant="bodyMd" tone="subdued">
+                  No tag activity yet. Create rules and process orders to see activity here.
+                </Text>
+              ) : (
+                <IndexTable
+                  resourceName={{ singular: "activity", plural: "activities" }}
+                  itemCount={recentActivity.length}
+                  headings={[
+                    { title: "Entity" },
+                    { title: "Tag Applied" },
+                    { title: "Date" },
+                  ]}
+                  selectable={false}
+                >
+                  {activityRowMarkup}
+                </IndexTable>
+              )}
             </BlockStack>
           </Card>
         </Layout.Section>
@@ -170,16 +165,22 @@ export default function Index() {
               <Text as="h2" variant="headingMd">
                 Tag Usage Summary
               </Text>
-              <InlineStack gap="400" wrap>
-                {tagUsage.map(({ tag, count }) => (
-                  <InlineStack key={tag} gap="200" align="center">
-                    <Badge>{tag}</Badge>
-                    <Text as="span" variant="bodyMd" fontWeight="semibold">
-                      {count}
-                    </Text>
-                  </InlineStack>
-                ))}
-              </InlineStack>
+              {tagUsage.length === 0 ? (
+                <Text as="p" variant="bodyMd" tone="subdued">
+                  No tag usage data yet. Create rules and process orders to see usage statistics.
+                </Text>
+              ) : (
+                <InlineStack gap="400" wrap>
+                  {tagUsage.map(({ tag, count }) => (
+                    <InlineStack key={tag} gap="200" align="center">
+                      <Badge>{tag}</Badge>
+                      <Text as="span" variant="bodyMd" fontWeight="semibold">
+                        {count}
+                      </Text>
+                    </InlineStack>
+                  ))}
+                </InlineStack>
+              )}
             </BlockStack>
           </Card>
         </Layout.Section>

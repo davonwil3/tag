@@ -3,7 +3,7 @@
 client_id = "07213876d17a22e103720d9e1ccd7b09"
 name = "Taglogic"
 handle = "taglogic"
-application_url = "https://garage-promises-character-compaq.trycloudflare.com"
+application_url = "https://tag-navy.vercel.app/"
 embedded = true
 
 [build]
@@ -31,9 +31,9 @@ scopes = "write_products,write_orders,read_orders"
 
 [auth]
 redirect_urls = [
-  "https://garage-promises-character-compaq.trycloudflare.com/auth/callback",
-  "https://garage-promises-character-compaq.trycloudflare.com/auth/shopify/callback",
-  "https://garage-promises-character-compaq.trycloudflare.com/api/auth/callback"
+  "https://tag-navy.vercel.app/auth/callback",
+  "https://tag-navy.vercel.app/auth/shopify/callback",
+  "https://tag-navy.vercel.app/api/auth/callback"
 ]
 
 [pos]
