@@ -16,6 +16,7 @@ import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "~/db.server";
 import { DynamicConditionInput } from "~/components/DynamicConditionInput";
+import { nanoid } from "nanoid";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -40,12 +41,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     await prisma.rule.create({
       data: {
+        id: nanoid(),
         name: ruleName,
         appliesTo,
         condition,
         conditionValue,
         tag: tagToApply,
         shop: session.shop,
+        updatedAt: new Date(),
       },
     });
 
@@ -57,47 +60,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function NewRule() {
-  const [appliesTo, setAppliesTo] = useState<string>("");
-  const [condition, setCondition] = useState<string>("");
-  const [ruleName, setRuleName] = useState("");
-  const [conditionValue, setConditionValue] = useState("");
-  const [tagToApply, setTagToApply] = useState("");
-  const navigation = useNavigation();
-  const actionData = useActionData<typeof action>();
-  const isSubmitting = navigation.state === "submitting";
-
-  const handleAppliesToChange = useCallback(
-    (value: string) => {
-      setAppliesTo(value);
-      setCondition(""); // Reset condition when appliesTo changes
-      setConditionValue(""); // Reset condition value when appliesTo changes
-    },
-    []
-  );
-
-  const handleConditionChange = useCallback(
-    (value: string) => {
-      setCondition(value);
-      setConditionValue(""); // Reset condition value when condition changes
-    },
-    []
-  );
-
-  const handleRuleNameChange = useCallback(
-    (value: string) => setRuleName(value),
-    []
-  );
-
-  const handleConditionValueChange = useCallback(
-    (value: string) => setConditionValue(value),
-    []
-  );
-
-  const handleTagToApplyChange = useCallback(
-    (value: string) => setTagToApply(value),
-    []
-  );
-
   const conditionOptions = {
     Order: [
       { label: "Total is greater than", value: "total_greater_than" },
@@ -136,6 +98,49 @@ export default function NewRule() {
     { label: "Customer", value: "Customer" },
     { label: "Product", value: "Product" },
   ];
+
+  // Set sensible defaults
+  const [appliesTo, setAppliesTo] = useState<string>("Order");
+  const [condition, setCondition] = useState<string>(conditionOptions["Order"][0].value);
+  const [ruleName, setRuleName] = useState("");
+  const [conditionValue, setConditionValue] = useState("");
+  const [tagToApply, setTagToApply] = useState("");
+  const navigation = useNavigation();
+  const actionData = useActionData<typeof action>();
+  const isSubmitting = navigation.state === "submitting";
+
+  const handleAppliesToChange = useCallback(
+    (value: string) => {
+      setAppliesTo(value);
+      const firstCondition = conditionOptions[value as keyof typeof conditionOptions]?.[0]?.value || "";
+      setCondition(firstCondition);
+      setConditionValue("");
+    },
+    []
+  );
+
+  const handleConditionChange = useCallback(
+    (value: string) => {
+      setCondition(value);
+      setConditionValue("");
+    },
+    []
+  );
+
+  const handleRuleNameChange = useCallback(
+    (value: string) => setRuleName(value),
+    []
+  );
+
+  const handleConditionValueChange = useCallback(
+    (value: string) => setConditionValue(value),
+    []
+  );
+
+  const handleTagToApplyChange = useCallback(
+    (value: string) => setTagToApply(value),
+    []
+  );
 
   return (
     <Page
