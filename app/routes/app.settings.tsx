@@ -17,7 +17,7 @@ import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { prisma } from "~/db.server";
-import { applyRulesToPastData } from "./app.rules.new";
+import { applyRulesToPastData } from "~/utils/pastData.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
