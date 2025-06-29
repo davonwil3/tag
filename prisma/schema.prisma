@@ -73,10 +73,12 @@ model tagUsage {
   @@index([tag])
 }
 
-model merchantSettings {
-  shop           String   @id
-  plan           String   @default("Free")
-  billingActive  Boolean  @default(false)
-  pastDataOptIn  Boolean  @default(false)
-  createdAt      DateTime @default(now())
-}
+ model merchantSettings {
+     shop              String   @id
+     plan              String   @default("Free")
+     billingActive     Boolean  @default(false)
+     pastDataOptIn     Boolean  @default(false)
+     pastDataProgress  Json?  
+     pastDataProcessing Boolean  @default(false) 
+     createdAt         DateTime @default(now())
+  }
