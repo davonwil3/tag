@@ -17,6 +17,7 @@ import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import { prisma } from "~/db.server";
+import { applyRulesToPastData } from "./app.rules.new";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -37,7 +38,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
   const formData = await request.formData();
   const pastDataOptIn = formData.get("applyToPastData") === "true";
@@ -46,6 +47,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     update: { pastDataOptIn },
     create: { shop, pastDataOptIn },
   });
+  if (pastDataOptIn) {
+    await applyRulesToPastData(shop, admin);
+  }
   return json({ success: true });
 };
 
