@@ -63,7 +63,7 @@ export async function applyRulesToPastData(shop: string, admin: any) {
               name
               tags
               totalPrice
-              discountCodes { code }
+              discountCodes
               lineItems(first: 10) { edges { node { product { id } } } }
               shippingLines { title }
               fulfillmentStatus
@@ -153,7 +153,7 @@ export async function applyRulesToPastData(shop: string, admin: any) {
               productType
               priceRange { minVariantPrice { amount } }
               publishedAt
-              sku: variants(first: 1) { edges { node { sku } } }
+              variants(first: 1) { edges { node { sku } } }
             }
           }
         }
@@ -328,7 +328,7 @@ export async function applyRulesToPastData(shop: string, admin: any) {
             shouldApply = currentTags.includes(rule.conditionValue);
             break;
           case "sku_starts_with":
-            shouldApply = product.sku?.edges?.[0]?.node?.sku?.startsWith(rule.conditionValue);
+            shouldApply = product.variants?.edges?.[0]?.node?.sku?.startsWith(rule.conditionValue);
             break;
           case "published_before":
             shouldApply = new Date(product.publishedAt) < new Date(rule.conditionValue);
