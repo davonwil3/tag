@@ -1,6 +1,6 @@
 import { json, redirect } from "@remix-run/node";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useActionData, useNavigation, useFetcher } from "@remix-run/react";
+import { Form, useActionData, useNavigation } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -11,15 +11,12 @@ import {
   Button,
   Banner,
   BlockStack,
-  Modal,
 } from "@shopify/polaris";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "~/db.server";
-import type { Prisma as PrismaType } from "@prisma/client";
 import { DynamicConditionInput } from "~/components/DynamicConditionInput";
 import { nanoid } from "nanoid";
-import { applyRulesToPastData, setPastDataOptIn } from "~/utils/pastData.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
@@ -35,16 +32,6 @@ async function checkIfFirstRule(shop: string) {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
-  const intent = formData.get("intent");
-
-  if (intent === "applyPastDataOptIn") {
-    const pastDataOptIn = formData.get("pastDataOptIn") === "true";
-    await setPastDataOptIn(session.shop, pastDataOptIn);
-    if (pastDataOptIn) {
-      await applyRulesToPastData(session.shop, admin);
-    }
-    return json({ pastDataOptIn });
-  }
 
   const ruleName = formData.get("ruleName") as string;
   const appliesTo = formData.get("appliesTo") as string;
@@ -128,17 +115,6 @@ export default function NewRule() {
   const navigation = useNavigation();
   const actionData = useActionData<typeof action>();
   const isSubmitting = navigation.state === "submitting";
-  const fetcher = useFetcher();
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
-  const modalShownRef = useRef(false);
-
-  useEffect(() => {
-    if (actionData && typeof actionData === 'object' && 'isFirstRule' in actionData && actionData.isFirstRule && !modalShownRef.current) {
-      setShowOnboarding(true);
-      modalShownRef.current = true;
-    }
-  }, [actionData]);
 
   const handleAppliesToChange = useCallback(
     (value: string) => {
@@ -172,16 +148,6 @@ export default function NewRule() {
     (value: string) => setTagToApply(value),
     []
   );
-
-  const handleOnboarding = (optIn: boolean) => {
-    setOnboardingLoading(true);
-    fetcher.submit(
-      { intent: "applyPastDataOptIn", pastDataOptIn: optIn.toString() },
-      { method: "post" }
-    );
-    setShowOnboarding(false);
-    setOnboardingLoading(false);
-  };
 
   return (
     <Page
@@ -263,26 +229,6 @@ export default function NewRule() {
           </Card>
         </Layout.Section>
       </Layout>
-      <Modal
-        open={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-        title="Apply rules to existing data?"
-        primaryAction={{
-          content: "Yes, apply to past data",
-          onAction: () => handleOnboarding(true),
-          loading: onboardingLoading,
-        }}
-        secondaryActions={[
-          {
-            content: "No, only apply going forward",
-            onAction: () => handleOnboarding(false),
-          },
-        ]}
-      >
-        <Modal.Section>
-          <p>Would you like your rules to automatically apply to your existing orders and customers as well?</p>
-        </Modal.Section>
-      </Modal>
     </Page>
   );
 } 
