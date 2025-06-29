@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { json } from "@remix-run/node";
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useFetcher } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
 import { prisma } from "~/db.server";
 import {
@@ -14,7 +15,11 @@ import {
   Badge,
   InlineStack,
   Divider,
+  Modal,
+  Tooltip,
+  Banner,
 } from "@shopify/polaris";
+import { DeleteIcon } from '@shopify/polaris-icons';
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -52,29 +57,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function Index() {
-  const { rules, recentActivity, tagUsage } = useLoaderData<typeof loader>();
+  const { rules: initialRules, recentActivity, tagUsage } = useLoaderData<typeof loader>();
+  const [rules, setRules] = useState(initialRules);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [showHelper, setShowHelper] = useState(false);
+  const fetcher = useFetcher();
 
-  const activityRowMarkup = recentActivity.map(
-    (activity, index) => (
-      <IndexTable.Row
-        id={activity.id}
-        key={activity.id}
-        position={index}
-      >
-        <IndexTable.Cell>
-          <Text variant="bodyMd" fontWeight="bold" as="span">
-            {activity.entityType} #{activity.entityId}
-          </Text>
-        </IndexTable.Cell>
-        <IndexTable.Cell>
-          <Badge>{activity.tag}</Badge>
-        </IndexTable.Cell>
-        <IndexTable.Cell>
-          {new Date(activity.appliedAt).toLocaleDateString()}
-        </IndexTable.Cell>
-      </IndexTable.Row>
-    )
-  );
+  const handleDelete = async (id: string) => {
+    await fetcher.submit(null, {
+      method: "delete",
+      action: `/api/rules/${id}`,
+    });
+    setRules((prev) => prev.filter((r) => r.id !== id));
+    setShowHelper(true);
+    setConfirming(null);
+  };
 
   return (
     <Page
@@ -108,7 +105,25 @@ export default function Index() {
                   ]}
                   selectable={false}
                 >
-                  {activityRowMarkup}
+                  {recentActivity.map((activity, index) => (
+                    <IndexTable.Row
+                      id={activity.id}
+                      key={activity.id}
+                      position={index}
+                    >
+                      <IndexTable.Cell>
+                        <Text variant="bodyMd" fontWeight="bold" as="span">
+                          {activity.entityType} #{activity.entityId}
+                        </Text>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Badge>{activity.tag}</Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        {new Date(activity.appliedAt).toLocaleDateString()}
+                      </IndexTable.Cell>
+                    </IndexTable.Row>
+                  ))}
                 </IndexTable>
               )}
             </BlockStack>
@@ -122,6 +137,11 @@ export default function Index() {
               <Text as="h2" variant="headingMd">
                 Rule Summary
               </Text>
+              {showHelper && (
+                <Banner onDismiss={() => setShowHelper(false)}>
+                  Tags already applied by this rule will remain in Shopify. You can remove them manually from the Shopify admin.
+                </Banner>
+              )}
               {rules.length === 0 ? (
                 <Text as="p" variant="bodyMd" tone="subdued">
                   No rules created yet. Create your first rule to get started.
@@ -135,6 +155,13 @@ export default function Index() {
                           {rule.name}
                         </Text>
                         <Badge>{rule.appliesTo}</Badge>
+                        <Tooltip content="Delete rule">
+                          <Button
+                            icon={DeleteIcon}
+                            tone="critical"
+                            onClick={() => setConfirming(rule.id)}
+                          />
+                        </Tooltip>
                       </InlineStack>
                       <Text as="p" variant="bodySm" tone="subdued">
                         {rule.condition === "total_greater_than" && `Order total > $${rule.conditionValue}`}
@@ -150,6 +177,29 @@ export default function Index() {
                       <Text as="p" variant="bodySm">
                         Applies tag: <Badge>{rule.tag}</Badge>
                       </Text>
+                      {confirming === rule.id && (
+                        <Modal
+                          open
+                          title="Delete this rule?"
+                          onClose={() => setConfirming(null)}
+                          primaryAction={{
+                            content: "Delete",
+                            onAction: () => handleDelete(rule.id),
+                          }}
+                          secondaryActions={[
+                            {
+                              content: "Cancel",
+                              onAction: () => setConfirming(null),
+                            },
+                          ]}
+                        >
+                          <Modal.Section>
+                            <Text as="p">
+                              Are you sure? Tags already applied by this rule will remain in Shopify. You can remove them manually from the Shopify admin.
+                            </Text>
+                          </Modal.Section>
+                        </Modal>
+                      )}
                     </BlockStack>
                   ))}
                 </BlockStack>

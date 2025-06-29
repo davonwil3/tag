@@ -28,7 +28,7 @@ export default function App() {
             Rules
           </Link>
           <Link to="/app/rules/new">Create Rule</Link>
-          <Link to="/app/additional">Additional page</Link>
+          <Link to ="/app/settings">Settings</Link>
         </NavMenu>
         <Outlet />
       </AppProvider>
