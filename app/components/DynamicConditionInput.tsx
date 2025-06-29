@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import {
   TextField,
   Select,
@@ -14,6 +14,43 @@ interface DynamicConditionInputProps {
   value?: string;
   onChange?: (value: string) => void;
   error?: string;
+}
+
+function SingleDatePicker({ value, onChange, error, label }: { value?: string, onChange: (val: string) => void, error?: string, label: string }) {
+  const initialDate = value ? new Date(value) : new Date();
+  const [selectedDate, setSelectedDate] = useState<{ start: Date; end: Date }>({
+    start: initialDate,
+    end: initialDate,
+  });
+  const [dateState, setDateState] = useState({
+    month: initialDate.getMonth(),
+    year: initialDate.getFullYear(),
+  });
+
+  const handleDateChange = useCallback(
+    (range: { start: Date; end: Date }) => {
+      setSelectedDate(range);
+      if (range.start) {
+        onChange(range.start.toISOString().split("T")[0]);
+      }
+    },
+    [onChange]
+  );
+
+  const handleMonthChange = useCallback(
+    (month: number, year: number) => setDateState({ month, year }),
+    []
+  );
+
+  return (
+    <DatePicker
+      month={dateState.month}
+      year={dateState.year}
+      onChange={handleDateChange}
+      onMonthChange={handleMonthChange}
+      selected={selectedDate}
+    />
+  );
 }
 
 export function DynamicConditionInput({
@@ -249,11 +286,10 @@ export function DynamicConditionInput({
 
       case "created_before":
         return (
-          <DatePicker
+          <SingleDatePicker
             label="Created Before"
-            name="conditionValue"
-            value={value ? new Date(value) : undefined}
-            onChange={(date) => handleChange(date?.toISOString().split('T')[0] || "")}
+            value={value}
+            onChange={handleChange}
             error={error}
           />
         );
@@ -371,11 +407,10 @@ export function DynamicConditionInput({
 
       case "published_before":
         return (
-          <DatePicker
+          <SingleDatePicker
             label="Published Before"
-            name="conditionValue"
-            value={value ? new Date(value) : undefined}
-            onChange={(date) => handleChange(date?.toISOString().split('T')[0] || "")}
+            value={value}
+            onChange={handleChange}
             error={error}
           />
         );
