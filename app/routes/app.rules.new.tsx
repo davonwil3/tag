@@ -42,7 +42,7 @@ async function setPastDataOptIn(shop: string, value: boolean) {
 }
 
 // Helper to apply rules to past data (smart implementation)
-async function applyRulesToPastData(shop: string, admin: any) {
+export async function applyRulesToPastData(shop: string, admin: any) {
   // 1. Fetch all rules for this shop
   const rules = await prisma.rule.findMany({ where: { shop } });
   if (!rules.length) return;
