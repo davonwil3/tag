@@ -56,21 +56,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log("tagUsage table not found, using empty array");
   }
   
-  // Get merchantSettings for all batch processing
+  // Get merchantSettings for batch processing
   const settings = await prisma.merchantSettings.findUnique({ where: { shop: session.shop } });
-  
-  // Legacy past data progress (for backward compatibility)
-  let legacyPercent = 0;
-  if (
-    settings?.pastDataProgress &&
-    typeof settings.pastDataProgress === 'object' &&
-    !Array.isArray(settings.pastDataProgress) &&
-    typeof settings.pastDataProgress.percent === 'number'
-  ) {
-    legacyPercent = settings.pastDataProgress.percent;
-  }
 
-  // New batch progress for each entity type
+  // Batch progress for each entity type
   const batchProgress = {
     order: settings?.orderBatchProgress as any || null,
     product: settings?.productBatchProgress as any || null,
@@ -81,10 +70,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     rules,
     recentActivity,
     tagUsage,
-    // Legacy support
-    pastDataProcessing: settings?.pastDataProcessing || false,
-    pastDataProgress: { percent: legacyPercent },
-    // New batch processing
     batchProgress,
   });
 };
@@ -94,8 +79,6 @@ export default function Index() {
     rules: initialRules, 
     recentActivity, 
     tagUsage, 
-    pastDataProcessing, 
-    pastDataProgress,
     batchProgress 
   } = useLoaderData<typeof loader>();
   
@@ -106,7 +89,7 @@ export default function Index() {
 
   // Poll for progress every 5s while any processing is active
   React.useEffect(() => {
-    const isProcessing = pastDataProcessing || 
+    const isProcessing = 
       (batchProgress.order && !batchProgress.order.done) ||
       (batchProgress.product && !batchProgress.product.done) ||
       (batchProgress.customer && !batchProgress.customer.done);
@@ -114,7 +97,7 @@ export default function Index() {
     if (!isProcessing) return;
     const id = setInterval(() => fetcher.load("/app"), 5000);
     return () => clearInterval(id);
-  }, [pastDataProcessing, batchProgress]);
+  }, [batchProgress]);
 
   const handleDelete = async (id: string) => {
     await fetcher.submit(null, {
@@ -261,29 +244,6 @@ export default function Index() {
                     )}
                   </BlockStack>
                 </Box>
-              </BlockStack>
-
-              {/* Legacy Past Orders Button (for backward compatibility) */}
-              <Divider />
-              <BlockStack gap="200">
-                <Text as="h3" variant="headingSm">Legacy Processing</Text>
-                <fetcher.Form method="post" action="/app/start-past-orders">
-                  <Button
-                    variant="secondary"
-                    loading={pastDataProcessing}
-                    disabled={pastDataProcessing}
-                  >
-                    Tag Past Orders (Legacy)
-                  </Button>
-                </fetcher.Form>
-                {pastDataProcessing && (
-                  <Text as="span" tone="subdued">
-                    {typeof pastDataProgress?.percent === "number" ? pastDataProgress.percent : 0}% complete…
-                  </Text>
-                )}
-                {!pastDataProcessing && typeof pastDataProgress?.percent === "number" && pastDataProgress.percent === 100 && (
-                  <Badge tone="success">Completed</Badge>
-                )}
               </BlockStack>
             </BlockStack>
           </Card>

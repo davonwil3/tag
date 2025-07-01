@@ -1,6 +1,6 @@
 # Batch Processing System
 
-This document describes the new batch processing system for tagging orders, products, and customers in bulk.
+This document describes the batch processing system for tagging orders, products, and customers in bulk.
 
 ## Overview
 
@@ -13,12 +13,14 @@ The batch processing system allows you to apply your tagging rules to existing o
 - **Vercel Compatibility**: Uses cron jobs to continue processing across function timeouts
 - **Resumable**: Can resume from where it left off if interrupted
 - **Rate Limited**: Built-in delays to respect Shopify API limits
+- **Activity Tracking**: Records all tag applications for audit trails
+- **Usage Statistics**: Tracks tag usage counts and last used dates
 
 ## How It Works
 
 ### 1. Database Schema
 
-The system uses the `merchantSettings` table with new fields for each entity type:
+The system uses the `merchantSettings` table with fields for each entity type:
 
 ```sql
 -- Per-entity batch progress and cursor fields
@@ -87,8 +89,10 @@ The system uses Vercel cron jobs to continue processing every 5 minutes:
 1. **Fetch Entities**: Retrieves entities from Shopify API with pagination
 2. **Apply Rules**: Evaluates each entity against your tagging rules
 3. **Update Tags**: Applies tags to entities that match rule conditions
-4. **Track Progress**: Updates database with progress and cursor information
-5. **Continue**: Vercel cron jobs continue processing until complete
+4. **Track Activity**: Records tag applications in the database
+5. **Update Statistics**: Updates tag usage counts
+6. **Track Progress**: Updates database with progress and cursor information
+7. **Continue**: Vercel cron jobs continue processing until complete
 
 ## Technical Details
 
@@ -103,25 +107,13 @@ The system uses Vercel cron jobs to continue processing every 5 minutes:
 ### Error Handling
 - Failed entity updates are logged but don't stop processing
 - Processing continues from the last successful cursor position
+- Tag activity tracking errors don't affect main processing
 
 ### Data Storage
 - Progress is stored as JSON in the database
 - Cursors enable resumable processing
 - Tag activity is tracked in the `tagActivity` table
-
-## Migration from Legacy System
-
-The new system is backward compatible with the legacy "Tag Past Orders" functionality. The legacy system is still available but marked as "Legacy" in the UI.
-
-### Key Differences
-
-| Feature | Legacy | New System |
-|---------|--------|------------|
-| Entity Types | Orders only | Orders, Products, Customers |
-| Progress Tracking | Simple percentage | Detailed progress with counts |
-| Resumability | Limited | Full cursor-based resumption |
-| Vercel Compatibility | No | Yes, with cron jobs |
-| UI | Single button | Per-entity controls |
+- Tag usage statistics are stored in the `tagUsage` table
 
 ## Troubleshooting
 
@@ -146,4 +138,5 @@ The new system is backward compatible with the legacy "Tag Past Orders" function
 - Configurable batch sizes per entity type
 - Advanced filtering options
 - Processing schedules and automation
-- Detailed analytics and reporting 
+- Detailed analytics and reporting
+- Email notifications for completion 
