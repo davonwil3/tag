@@ -1,6 +1,6 @@
 import { json } from "@remix-run/node";
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { processBatch, type EntityType } from "~/jobs/batchTagPastData.server";
+import { processBatch, type EntityType } from "../../jobs/batchTagPastData.server";
 import { prisma } from "~/db.server";
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {

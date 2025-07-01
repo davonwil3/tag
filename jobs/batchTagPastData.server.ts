@@ -1,5 +1,5 @@
 import { prisma } from "~/db.server";
-import { shopifyRestClient } from "~/shopify.server";
+import { authenticate } from "~/shopify.server";
 
 export type EntityType = "order" | "product" | "customer";
 
@@ -15,45 +15,59 @@ export async function processBatch({
   const rules = await prisma.rule.findMany({ where: { shop } });
   if (!rules.length) return { done: true };
 
+  // Get admin client for this shop using authenticate pattern
+  const session = await prisma.session.findFirst({ where: { shop } });
+  if (!session) {
+    throw new Error(`No session found for shop: ${shop}`);
+  }
+
+  // Create a mock request to use authenticate.admin
+  const mockRequest = new Request("http://localhost", {
+    headers: {
+      "Authorization": `Bearer ${session.accessToken}`,
+    }
+  });
+
+  const { admin } = await authenticate.admin(mockRequest);
+
   let endpoint = "";
   let params: any = { limit: 25 };
   let entityKey = "";
   let idKey = "id";
-  let tagKey = "tags";
   let updateEndpoint = "";
   let entityList: any[] = [];
   let nextCursor: string | null = null;
 
   switch (entityType) {
     case "order":
-      endpoint = "/admin/api/2023-10/orders.json";
+      endpoint = "orders";
       params.status = "any";
       params.fields = "id,total_price,tags,line_items,discount_codes,shipping_lines,order_number,customer,fulfillment_status";
       if (cursor) params.page_info = cursor;
       entityKey = "orders";
-      updateEndpoint = "/admin/api/2023-10/orders/";
+      updateEndpoint = "orders";
       break;
     case "product":
-      endpoint = "/admin/api/2023-10/products.json";
+      endpoint = "products";
       params.fields = "id,title,tags,vendor,product_type,variants,published_at";
       if (cursor) params.page_info = cursor;
       entityKey = "products";
-      updateEndpoint = "/admin/api/2023-10/products/";
+      updateEndpoint = "products";
       break;
     case "customer":
-      endpoint = "/admin/api/2023-10/customers.json";
+      endpoint = "customers";
       params.fields = "id,email,tags,total_spent,orders_count,accepts_marketing,created_at,default_address";
       if (cursor) params.page_info = cursor;
       entityKey = "customers";
-      updateEndpoint = "/admin/api/2023-10/customers/";
+      updateEndpoint = "customers";
       break;
   }
 
-  const res = await shopifyRestClient(shop).get(endpoint, { params });
-  entityList = res.data[entityKey];
+  const res = await admin.rest.get({ path: endpoint, query: params });
+  entityList = res.body[entityKey];
 
   // Pagination
-  const linkHeader = res.headers["link"];
+  const linkHeader = res.headers.get("link");
   nextCursor = null;
   if (linkHeader) {
     const match = linkHeader.match(/<[^>]+page_info=([^&>]+)[^>]*>; rel="next"/);
@@ -61,7 +75,7 @@ export async function processBatch({
   }
 
   let processed = 0;
-  const appliedTags: string[] = []; // Track tags applied in this batch
+  const appliedTags: string[] = [];
 
   for (const entity of entityList) {
     let tags = entity.tags ? entity.tags.split(",").map((t: string) => t.trim()) : [];
@@ -161,19 +175,22 @@ export async function processBatch({
     // Only update if tags changed
     if (tags.join(",") !== entity.tags) {
       try {
-        await shopifyRestClient(shop).put(`${updateEndpoint}${entity[idKey]}.json`, {
-          [entityType]: { id: entity[idKey], tags: tags.join(", ") },
+        await admin.rest.put({
+          path: `${updateEndpoint}/${entity[idKey]}`,
+          data: {
+            [entityType]: { id: entity[idKey], tags: tags.join(", ") },
+          },
         });
 
         // Track tag activity for newly applied tags
-        const newTags = tags.filter(tag => !originalTags.includes(tag));
+        const newTags = tags.filter((tag: string) => !originalTags.includes(tag));
         for (const tag of newTags) {
           try {
             // Record tag activity
             await prisma.tagActivity.create({
               data: {
                 shop,
-                entityType: entityType.charAt(0).toUpperCase() + entityType.slice(1), // Capitalize
+                entityType: entityType.charAt(0).toUpperCase() + entityType.slice(1),
                 entityId: entity[idKey].toString(),
                 tag,
                 ruleId: rules.find(r => r.tag === tag)?.id,
