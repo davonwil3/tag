@@ -147,60 +147,70 @@ export default function Index() {
                   No rules created yet. Create your first rule to get started.
                 </Text>
               ) : (
-                <BlockStack gap="300">
-                  {rules.map((rule) => (
-                    <BlockStack key={rule.id} gap="200">
-                      <InlineStack align="space-between">
-                        <Text as="span" variant="bodyMd" fontWeight="semibold">
-                          {rule.name}
-                        </Text>
-                        <Badge>{rule.appliesTo}</Badge>
-                        <Tooltip content="Delete rule">
-                          <Button
-                            icon={DeleteIcon}
-                            tone="critical"
-                            onClick={() => setConfirming(rule.id)}
-                          />
-                        </Tooltip>
-                      </InlineStack>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        {rule.condition === "total_greater_than" && `Order total > $${rule.conditionValue}`}
-                        {rule.condition === "discount_used" && "Discount code applied"}
-                        {rule.condition === "contains_item" && `Contains "${rule.conditionValue}"`}
-                        {rule.condition === "total_spent" && `Customer spent > $${rule.conditionValue}`}
-                        {rule.condition === "orders_placed" && `Customer has > ${rule.conditionValue} orders`}
-                        {rule.condition === "has_email" && "Customer has email"}
-                        {rule.condition === "title_contains" && `Title contains "${rule.conditionValue}"`}
-                        {rule.condition === "vendor_is" && `Vendor is "${rule.conditionValue}"`}
-                        {rule.condition === "price_over" && `Price > $${rule.conditionValue}`}
-                      </Text>
-                      <Text as="p" variant="bodySm">
-                        Applies tag: <Badge>{rule.tag}</Badge>
-                      </Text>
-                      {confirming === rule.id && (
-                        <Modal
-                          open
-                          title="Delete this rule?"
-                          onClose={() => setConfirming(null)}
-                          primaryAction={{
-                            content: "Delete",
-                            onAction: () => handleDelete(rule.id),
-                          }}
-                          secondaryActions={[
-                            {
-                              content: "Cancel",
-                              onAction: () => setConfirming(null),
-                            },
-                          ]}
-                        >
-                          <Modal.Section>
-                            <Text as="p">
-                              Are you sure? Tags already applied by this rule will remain in Shopify. You can remove them manually from the Shopify admin.
+                <BlockStack gap="0">
+                  {rules.map((rule, idx) => (
+                    <>
+                      <div key={rule.id} style={{ padding: '20px 0' }}>
+                        <InlineStack align="space-between" blockAlign="center">
+                          <InlineStack gap="200" align="center">
+                            <Text as="span" variant="bodyMd" fontWeight="semibold">
+                              {rule.name}
                             </Text>
-                          </Modal.Section>
-                        </Modal>
-                      )}
-                    </BlockStack>
+                            <Badge>{rule.appliesTo}</Badge>
+                          </InlineStack>
+                          <Tooltip content="Delete rule">
+                            <Button
+                              icon={DeleteIcon}
+                              tone="critical"
+                              onClick={() => setConfirming(rule.id)}
+                              size="slim"
+                              variant="plain"
+                              accessibilityLabel={`Delete rule ${rule.name}`}
+                            />
+                          </Tooltip>
+                        </InlineStack>
+                        <div style={{ marginTop: 8 }}>
+                          <Text as="p" variant="bodySm" tone="subdued">
+                            {rule.condition === "total_greater_than" && `Order total > $${rule.conditionValue}`}
+                            {rule.condition === "discount_used" && "Discount code applied"}
+                            {rule.condition === "contains_item" && `Contains "${rule.conditionValue}"`}
+                            {rule.condition === "total_spent" && `Customer spent > $${rule.conditionValue}`}
+                            {rule.condition === "orders_placed" && `Customer has > ${rule.conditionValue} orders`}
+                            {rule.condition === "has_email" && "Customer has email"}
+                            {rule.condition === "title_contains" && `Title contains "${rule.conditionValue}"`}
+                            {rule.condition === "vendor_is" && `Vendor is "${rule.conditionValue}"`}
+                            {rule.condition === "price_over" && `Price > $${rule.conditionValue}`}
+                          </Text>
+                          <Text as="p" variant="bodySm">
+                            Applies tag: <Badge>{rule.tag}</Badge>
+                          </Text>
+                        </div>
+                        {confirming === rule.id && (
+                          <Modal
+                            open
+                            title="Delete this rule?"
+                            onClose={() => setConfirming(null)}
+                            primaryAction={{
+                              content: "Delete",
+                              onAction: () => handleDelete(rule.id),
+                            }}
+                            secondaryActions={[
+                              {
+                                content: "Cancel",
+                                onAction: () => setConfirming(null),
+                              },
+                            ]}
+                          >
+                            <Modal.Section>
+                              <Text as="p">
+                                Are you sure? Tags already applied by this rule will remain in Shopify. You can remove them manually from the Shopify admin.
+                              </Text>
+                            </Modal.Section>
+                          </Modal>
+                        )}
+                      </div>
+                      {idx < rules.length - 1 && <Divider />}
+                    </>
                   ))}
                 </BlockStack>
               )}

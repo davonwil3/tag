@@ -210,9 +210,7 @@ export default function NewRule() {
                   />
                 </FormLayout>
 
-                <Banner>
-                  <p>🧠 Soon you'll be able to let AI suggest rules based on your store's data.</p>
-                </Banner>
+                
 
                 <div style={{ marginTop: "1rem" }}>
                   <Button
