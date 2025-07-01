@@ -18,8 +18,11 @@ import {
   Modal,
   Tooltip,
   Banner,
+  ProgressBar,
+  Box,
 } from "@shopify/polaris";
 import { DeleteIcon } from '@shopify/polaris-icons';
+import React from "react";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -53,15 +56,65 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     console.log("tagUsage table not found, using empty array");
   }
   
-  return json({ rules, recentActivity, tagUsage });
+  // Get merchantSettings for all batch processing
+  const settings = await prisma.merchantSettings.findUnique({ where: { shop: session.shop } });
+  
+  // Legacy past data progress (for backward compatibility)
+  let legacyPercent = 0;
+  if (
+    settings?.pastDataProgress &&
+    typeof settings.pastDataProgress === 'object' &&
+    !Array.isArray(settings.pastDataProgress) &&
+    typeof settings.pastDataProgress.percent === 'number'
+  ) {
+    legacyPercent = settings.pastDataProgress.percent;
+  }
+
+  // New batch progress for each entity type
+  const batchProgress = {
+    order: settings?.orderBatchProgress as any || null,
+    product: settings?.productBatchProgress as any || null,
+    customer: settings?.customerBatchProgress as any || null,
+  };
+
+  return json({
+    rules,
+    recentActivity,
+    tagUsage,
+    // Legacy support
+    pastDataProcessing: settings?.pastDataProcessing || false,
+    pastDataProgress: { percent: legacyPercent },
+    // New batch processing
+    batchProgress,
+  });
 };
 
 export default function Index() {
-  const { rules: initialRules, recentActivity, tagUsage } = useLoaderData<typeof loader>();
+  const { 
+    rules: initialRules, 
+    recentActivity, 
+    tagUsage, 
+    pastDataProcessing, 
+    pastDataProgress,
+    batchProgress 
+  } = useLoaderData<typeof loader>();
+  
   const [rules, setRules] = useState(initialRules);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [showHelper, setShowHelper] = useState(false);
   const fetcher = useFetcher();
+
+  // Poll for progress every 5s while any processing is active
+  React.useEffect(() => {
+    const isProcessing = pastDataProcessing || 
+      (batchProgress.order && !batchProgress.order.done) ||
+      (batchProgress.product && !batchProgress.product.done) ||
+      (batchProgress.customer && !batchProgress.customer.done);
+    
+    if (!isProcessing) return;
+    const id = setInterval(() => fetcher.load("/app"), 5000);
+    return () => clearInterval(id);
+  }, [pastDataProcessing, batchProgress]);
 
   const handleDelete = async (id: string) => {
     await fetcher.submit(null, {
@@ -71,6 +124,33 @@ export default function Index() {
     setRules((prev) => prev.filter((r) => r.id !== id));
     setShowHelper(true);
     setConfirming(null);
+  };
+
+  const startBatchProcessing = (entityType: string) => {
+    fetcher.submit(null, {
+      method: "post",
+      action: `/api/batch/${entityType}`,
+    });
+  };
+
+  const getProgressPercent = (progress: any) => {
+    if (!progress) return 0;
+    if (progress.done) return 100;
+    // Calculate based on processed vs total if available
+    if (progress.processed && progress.batchSize) {
+      return Math.min((progress.processed / progress.batchSize) * 100, 99);
+    }
+    return 0;
+  };
+
+  const isProcessing = (entityType: string) => {
+    const progress = batchProgress[entityType as keyof typeof batchProgress];
+    return progress && !progress.done;
+  };
+
+  const isCompleted = (entityType: string) => {
+    const progress = batchProgress[entityType as keyof typeof batchProgress];
+    return progress && progress.done;
   };
 
   return (
@@ -83,6 +163,132 @@ export default function Index() {
       }
     >
       <Layout>
+        {/* Batch Processing Section */}
+        <Layout.Section>
+          <Card>
+            <BlockStack gap="400">
+              <Text as="h2" variant="headingMd">
+                Batch Processing
+              </Text>
+              <Text as="p" variant="bodyMd" tone="subdued">
+                Process existing orders, products, and customers with your tagging rules.
+              </Text>
+              
+              <BlockStack gap="300">
+                {/* Orders */}
+                <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="h3" variant="headingSm">Orders</Text>
+                      <Button
+                        variant="primary"
+                        size="slim"
+                        loading={isProcessing('order')}
+                        disabled={isProcessing('order')}
+                        onClick={() => startBatchProcessing('order')}
+                      >
+                        {isCompleted('order') ? 'Re-process' : 'Process Orders'}
+                      </Button>
+                    </InlineStack>
+                    {isProcessing('order') && (
+                      <BlockStack gap="200">
+                        <ProgressBar progress={getProgressPercent(batchProgress.order)} size="small" />
+                        <Text as="span" tone="subdued" variant="bodySm">
+                          Processing orders... {batchProgress.order?.processed || 0} processed
+                        </Text>
+                      </BlockStack>
+                    )}
+                    {isCompleted('order') && (
+                      <Badge tone="success">Completed</Badge>
+                    )}
+                  </BlockStack>
+                </Box>
+
+                {/* Products */}
+                <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="h3" variant="headingSm">Products</Text>
+                      <Button
+                        variant="primary"
+                        size="slim"
+                        loading={isProcessing('product')}
+                        disabled={isProcessing('product')}
+                        onClick={() => startBatchProcessing('product')}
+                      >
+                        {isCompleted('product') ? 'Re-process' : 'Process Products'}
+                      </Button>
+                    </InlineStack>
+                    {isProcessing('product') && (
+                      <BlockStack gap="200">
+                        <ProgressBar progress={getProgressPercent(batchProgress.product)} size="small" />
+                        <Text as="span" tone="subdued" variant="bodySm">
+                          Processing products... {batchProgress.product?.processed || 0} processed
+                        </Text>
+                      </BlockStack>
+                    )}
+                    {isCompleted('product') && (
+                      <Badge tone="success">Completed</Badge>
+                    )}
+                  </BlockStack>
+                </Box>
+
+                {/* Customers */}
+                <Box padding="300" background="bg-surface-secondary" borderRadius="200">
+                  <BlockStack gap="200">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="h3" variant="headingSm">Customers</Text>
+                      <Button
+                        variant="primary"
+                        size="slim"
+                        loading={isProcessing('customer')}
+                        disabled={isProcessing('customer')}
+                        onClick={() => startBatchProcessing('customer')}
+                      >
+                        {isCompleted('customer') ? 'Re-process' : 'Process Customers'}
+                      </Button>
+                    </InlineStack>
+                    {isProcessing('customer') && (
+                      <BlockStack gap="200">
+                        <ProgressBar progress={getProgressPercent(batchProgress.customer)} size="small" />
+                        <Text as="span" tone="subdued" variant="bodySm">
+                          Processing customers... {batchProgress.customer?.processed || 0} processed
+                        </Text>
+                      </BlockStack>
+                    )}
+                    {isCompleted('customer') && (
+                      <Badge tone="success">Completed</Badge>
+                    )}
+                  </BlockStack>
+                </Box>
+              </BlockStack>
+
+              {/* Legacy Past Orders Button (for backward compatibility) */}
+              <Divider />
+              <BlockStack gap="200">
+                <Text as="h3" variant="headingSm">Legacy Processing</Text>
+                <fetcher.Form method="post" action="/app/start-past-orders">
+                  <Button
+                    variant="secondary"
+                    loading={pastDataProcessing}
+                    disabled={pastDataProcessing}
+                  >
+                    Tag Past Orders (Legacy)
+                  </Button>
+                </fetcher.Form>
+                {pastDataProcessing && (
+                  <Text as="span" tone="subdued">
+                    {typeof pastDataProgress?.percent === "number" ? pastDataProgress.percent : 0}% complete…
+                  </Text>
+                )}
+                {!pastDataProcessing && typeof pastDataProgress?.percent === "number" && pastDataProgress.percent === 100 && (
+                  <Badge tone="success">Completed</Badge>
+                )}
+              </BlockStack>
+            </BlockStack>
+          </Card>
+        </Layout.Section>
+
         {/* Recent Tag Activity Section */}
         <Layout.Section>
           <Card>
@@ -152,62 +358,28 @@ export default function Index() {
                     <>
                       <div key={rule.id} style={{ padding: '20px 0' }}>
                         <InlineStack align="space-between" blockAlign="center">
-                          <InlineStack gap="200" align="center">
-                            <Text as="span" variant="bodyMd" fontWeight="semibold">
+                          <BlockStack gap="100">
+                            <Text as="h3" variant="headingSm">
                               {rule.name}
                             </Text>
-                            <Badge>{rule.appliesTo}</Badge>
+                            <Text as="p" variant="bodyMd" tone="subdued">
+                              {rule.appliesTo} • {rule.condition} {rule.conditionValue} → {rule.tag}
+                            </Text>
+                          </BlockStack>
+                          <InlineStack gap="200" blockAlign="center">
+                            <Badge tone={rule.isActive ? "success" : "critical"}>
+                              {rule.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                            <Tooltip content="Delete rule">
+                              <Button
+                                icon={DeleteIcon}
+                                variant="plain"
+                                tone="critical"
+                                onClick={() => setConfirming(rule.id)}
+                              />
+                            </Tooltip>
                           </InlineStack>
-                          <Tooltip content="Delete rule">
-                            <Button
-                              icon={DeleteIcon}
-                              tone="critical"
-                              onClick={() => setConfirming(rule.id)}
-                              size="slim"
-                              variant="plain"
-                              accessibilityLabel={`Delete rule ${rule.name}`}
-                            />
-                          </Tooltip>
                         </InlineStack>
-                        <div style={{ marginTop: 8 }}>
-                          <Text as="p" variant="bodySm" tone="subdued">
-                            {rule.condition === "total_greater_than" && `Order total > $${rule.conditionValue}`}
-                            {rule.condition === "discount_used" && "Discount code applied"}
-                            {rule.condition === "contains_item" && `Contains "${rule.conditionValue}"`}
-                            {rule.condition === "total_spent" && `Customer spent > $${rule.conditionValue}`}
-                            {rule.condition === "orders_placed" && `Customer has > ${rule.conditionValue} orders`}
-                            {rule.condition === "has_email" && "Customer has email"}
-                            {rule.condition === "title_contains" && `Title contains "${rule.conditionValue}"`}
-                            {rule.condition === "vendor_is" && `Vendor is "${rule.conditionValue}"`}
-                            {rule.condition === "price_over" && `Price > $${rule.conditionValue}`}
-                          </Text>
-                          <Text as="p" variant="bodySm">
-                            Applies tag: <Badge>{rule.tag}</Badge>
-                          </Text>
-                        </div>
-                        {confirming === rule.id && (
-                          <Modal
-                            open
-                            title="Delete this rule?"
-                            onClose={() => setConfirming(null)}
-                            primaryAction={{
-                              content: "Delete",
-                              onAction: () => handleDelete(rule.id),
-                            }}
-                            secondaryActions={[
-                              {
-                                content: "Cancel",
-                                onAction: () => setConfirming(null),
-                              },
-                            ]}
-                          >
-                            <Modal.Section>
-                              <Text as="p">
-                                Are you sure? Tags already applied by this rule will remain in Shopify. You can remove them manually from the Shopify admin.
-                              </Text>
-                            </Modal.Section>
-                          </Modal>
-                        )}
                       </div>
                       {idx < rules.length - 1 && <Divider />}
                     </>
@@ -218,75 +390,77 @@ export default function Index() {
           </Card>
         </Layout.Section>
 
-        {/* Tag Usage Summary Section */}
+        {/* Tag Usage Section */}
         <Layout.Section>
           <Card>
             <BlockStack gap="400">
               <Text as="h2" variant="headingMd">
-                Tag Usage Summary
+                Tag Usage Statistics
               </Text>
               {tagUsage.length === 0 ? (
                 <Text as="p" variant="bodyMd" tone="subdued">
-                  No tag usage data yet. Create rules and process orders to see usage statistics.
+                  No tag usage data yet. Process orders, products, or customers to see statistics here.
                 </Text>
               ) : (
-                <InlineStack gap="400" wrap>
-                  {tagUsage.map(({ tag, count }) => (
-                    <InlineStack key={tag} gap="200" align="center">
-                      <Badge>{tag}</Badge>
-                      <Text as="span" variant="bodyMd" fontWeight="semibold">
-                        {count}
-                      </Text>
-                    </InlineStack>
+                <IndexTable
+                  resourceName={{ singular: "tag", plural: "tags" }}
+                  itemCount={tagUsage.length}
+                  headings={[
+                    { title: "Tag" },
+                    { title: "Usage Count" },
+                    { title: "Last Used" },
+                  ]}
+                  selectable={false}
+                >
+                  {tagUsage.map((usage, index) => (
+                    <IndexTable.Row
+                      id={usage.id}
+                      key={usage.id}
+                      position={index}
+                    >
+                      <IndexTable.Cell>
+                        <Badge>{usage.tag}</Badge>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        <Text variant="bodyMd" as="span">
+                          {usage.count}
+                        </Text>
+                      </IndexTable.Cell>
+                      <IndexTable.Cell>
+                        {new Date(usage.lastUsed).toLocaleDateString()}
+                      </IndexTable.Cell>
+                    </IndexTable.Row>
                   ))}
-                </InlineStack>
+                </IndexTable>
               )}
             </BlockStack>
           </Card>
         </Layout.Section>
-
-        {/* Quick Stats Section */}
-        <Layout.Section>
-          <Layout>
-            <Layout.Section>
-              <Card>
-                <BlockStack gap="200" align="center">
-                  <Text as="span" variant="headingLg" fontWeight="bold">
-                    {rules.length}
-                  </Text>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Active Rules
-                  </Text>
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-            <Layout.Section>
-              <Card>
-                <BlockStack gap="200" align="center">
-                  <Text as="span" variant="headingLg" fontWeight="bold">
-                    {tagUsage.reduce((sum, tag) => sum + tag.count, 0)}
-                  </Text>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Tags Applied
-                  </Text>
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-            <Layout.Section>
-              <Card>
-                <BlockStack gap="200" align="center">
-                  <Text as="span" variant="headingLg" fontWeight="bold">
-                    {tagUsage.length}
-                  </Text>
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Unique Tags
-                  </Text>
-                </BlockStack>
-              </Card>
-            </Layout.Section>
-          </Layout>
-        </Layout.Section>
       </Layout>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={!!confirming}
+        onClose={() => setConfirming(null)}
+        title="Delete Rule"
+        primaryAction={{
+          content: "Delete",
+          destructive: true,
+          onAction: () => confirming && handleDelete(confirming),
+        }}
+        secondaryActions={[
+          {
+            content: "Cancel",
+            onAction: () => setConfirming(null),
+          },
+        ]}
+      >
+        <Modal.Section>
+          <Text as="p">
+            Are you sure you want to delete this rule? This action cannot be undone.
+          </Text>
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }

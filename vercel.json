@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/batch/order/continue",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/batch/product/continue", 
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/batch/customer/continue",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+} 
