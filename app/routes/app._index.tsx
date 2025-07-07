@@ -87,7 +87,7 @@ export default function Index() {
   const [showHelper, setShowHelper] = useState(false);
   const fetcher = useFetcher();
 
-  // Poll for progress every 5s while any processing is active
+  // Poll for progress every 5s while any processing is activ
   React.useEffect(() => {
     const isProcessing = 
       (batchProgress.order && !batchProgress.order.done) ||
